@@ -23,7 +23,7 @@ for i=0:1:N-d
     end
     
     frame_ = frame;
-    pause(0.1)
+    pause(0.01)
 end
 
 print('Data Generated');
@@ -55,7 +55,7 @@ weight = 800 + 160.*randn(N,M,2,Nout);
 % learning rate 
 
 alpha_plus = 100 + 20.*randn(Nout,N*M*2);
-alpha_minus = 50 + 10.*randn(Nout,N*M*2);
+alpha_minus = 0+ 0.*randn(Nout,N*M*2);
 
 % damping rate
 % why not finite?? always add a contsant value
@@ -69,7 +69,7 @@ times = 0:time_step:time_simulation;
 
 % neuronal current parameters
 
-I_threshold = 40000;
+I_threshold = 7;
 tau_leak    = 5e-3 ;
 
 % input current for the 48 output neurons
@@ -90,13 +90,18 @@ Time_inhibit = zeros(Nout,1);
 flag = 0;
 weight = reshape(weight,N*M*2,Nout)';      % for convenience of using weight matrix
 for i=0:length(times) % changed index i to start from 0 rather than 1
-        AER_input_pixels = Data(:,:,1+mod(i,NumFrames));
-        if(mod(i,NumFrames)==0)
-            %image(output_layer,'CDataMapping','Scaled');
-            image(neuronal_current,'CDataMapping','Scaled');
-            %bar(output_layer)
-            pause(0.1);
-        end
+        AER_input_pixels = Data(:,:,1+mod(floor(i),NumFrames));
+        %AER_input_pixels = 100*Data(:,:,1);
+        
+        %%%% Display Realtime parameters
+        figure(1)
+        surf(AER_input_pixels)
+        figure(2)
+        weight_ = reshape(weight,N,M,2*Nout)
+        image(weight_(:,:,1),'CDataMapping','Scaled');
+        colorbar
+        pause(0.01);
+        i % print current iteration index
 
       % finding out which neurons spiked
       % the AER pixels
@@ -105,8 +110,6 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
       spiking_pixels        = find(temp_AER_input_pixels);  % get  all spikes +1 and -1
       % Computing new current in the output neurons after spikes have been
       % received in the AER neurons
-      
-          
       lagging_neurons = find(Time_inhibit);                              % neurons which have to be inhibited
       Time_inhibit(lagging_neurons) = Time_inhibit(lagging_neurons) - 1; % decrementing by 1 in step
       
