@@ -9,11 +9,12 @@ d = 4;
 X = 1:N;
 Y = 1:M;
 AER_TH =20; %AER data threshold; found from plot of gradient
-Data = zeros(M,N,N-d);
+Data = zeros(M,N,N-d);            % twice the number  !!
 for i=0:1:N-d
     x = X-i;y=Y;
+   
     countourX = (heaviside(x-d)-heaviside(x)).*(x+1).*(x-d-1);
-    countourY = (heaviside(y-d)-heaviside(y)).*(y+1).*(y-d-1);
+    countourY = (heaviside(y-d)-heaviside(y)).*(y+3).*(y-d-1);
     frame  = countourY'*countourX;
     if(i>0)
         gradient = frame-frame_;
@@ -54,15 +55,15 @@ w_min = 100;
 
 % initialising weight with mean 800 and standard deviation 20
 
-weight = 800 + 160.*randn(N,M,2,Nout);
+weight = 700 + 160.*randn(N,M,2,Nout);
 
 % learning rate 
 
-alpha_plus = 300 + 10.*randn(Nout,N*M*2);
+alpha_plus = 100 + 10.*randn(Nout,N*M*2);
 alpha_minus = 20+ 5.*randn(Nout,N*M*2);
 
 % damping rate
-% why not finite?? always add a contsant value
+% why not finite?? always add a constant value
 beta_plus = 0.2;
 beta_minus = 0.2;
 
@@ -90,10 +91,17 @@ inhibitory_flag = zeros(Nout,1);
 refractory_flag = zeros(Nout,1);
 Time_inhibit = zeros(Nout,1);
 
+% Recording spike data
+spike_dat = zeros(Nout,1);
 %% ====================================================== Simulation starts =====================================================
 flag = 0;
 weight = reshape(weight,N*M*2,Nout)';      % for convenience of using weight matrix
+% for k = 1:NumFrames-1
+%     Data(:,:,NumFrames+k)=Data(:,:,NumFrames-k);
+% end 
 for i=0:length(times) % changed index i to start from 0 rather than 1
+        
+        
         AER_input_pixels = Data(:,:,1+mod(floor(i),NumFrames));
         %AER_input_pixels = 100*Data(:,:,1);
         
@@ -125,7 +133,9 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
          neuronal_current(threshold') = 0;                    % resetting the current to zero for neurons which spiked
          previous_spiking_pixels_time(threshold') = i*time_step;
          previous_AER_input_pixels_time(threshold',spiking_pixels) = i*time_step;
-         
+         spikes = zeros(Nout,1);
+         spikes(threshold) = 1;
+         spike_dat = [spike_dat spikes];
          % Taking care of the refractory period and lateral inhibition
          % threshold contains output neurons which spiked
          refractory_flag(threshold',1)        = 1;                                                                  % flag for the start of refractory period
@@ -162,24 +172,27 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
     end
       
       %%%% Display Realtime parameters
+      weight_ = reshape(weight,N,M,2*Nout);
         subplot(2,2,1);
         surf(AER_input_pixels)
+        hold on 
+        image(weight_(:,:,1)','CDataMapping','Scaled');   hold off
         title('Input Data')
-        
-        weight_ = reshape(weight,N,M,2*Nout);
-        
         subplot(2,2,2)
-        surf(weight_(:,:,4  ));
-        subplot(2,2,4)
-        surf(weight_(:,:,3));
+        plot(neuronal_current);
+        title('OutputLayer');
+        
+        for k=3:4
+            subplot(2,2,k)
+            %surf(weight_(:,:,k-2));
+            image(weight_(:,:,k-2),'CDataMapping','Scaled');
+        end
         title('All Weights')
         %image(weight_(:,:,1),'CDataMapping','Scaled');colormap;
         
-        subplot(2,2,3)
-        plot(output_layer);
-        title('OutputLayer');
-        subplot
-        pause(0.01);
+       
+        
+        pause(0.1);
         i % print current iteration index
               
 end
