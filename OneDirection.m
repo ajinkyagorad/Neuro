@@ -7,7 +7,7 @@ Nout = 12;
 
 
 N = 16;
-M = 4;
+M = 6;
 d = 4;
 X = 1:N;
 Y = 1:M;
@@ -178,7 +178,7 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
     end
       figure(1)
       %%%% Display Realtime parameters
-      if(mod(i,NumFrames)==0)
+      %if(mod(i,NumFrames)==0) % if want to skip frames
       weight_ = reshape(weight,N,M,2*Nout); % there are twice the number of weights
         subplot(2,2,1);
         surf(Data(:,:,currentDataIndex))
@@ -209,6 +209,6 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
         
         pause(0.1);
         i % print current iteration index
-      end
+     % end
               
 end
