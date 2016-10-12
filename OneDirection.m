@@ -27,7 +27,11 @@ for i=0:1:N-d
 end
 
 print('Data Generated');
-
+%% Generate Test Object for STDP checking
+%     countourX = (heaviside(X-3*N/4)-heaviside(X-N/4)).*(X+1).*(X-3*N/4-1);
+%     countourY = (heaviside(Y-3*M/4)-heaviside(Y-M/4)).*(Y+1).*(Y-3*M/4-1);
+%     frame  = countourY'*countourX;
+%     image(frame,'CDataMapping','Scaled')
 %% STDP Network Learn
 %Network size NxM, with input size of N-d (d = target size) repeated K
 %times
@@ -54,23 +58,23 @@ weight = 800 + 160.*randn(N,M,2,Nout);
 
 % learning rate 
 
-alpha_plus = 100 + 20.*randn(Nout,N*M*2);
-alpha_minus = 0+ 0.*randn(Nout,N*M*2);
+alpha_plus = 300 + 10.*randn(Nout,N*M*2);
+alpha_minus = 20+ 5.*randn(Nout,N*M*2);
 
 % damping rate
 % why not finite?? always add a contsant value
-beta_plus = 0;
-beta_minus = 0;
+beta_plus = 0.2;
+beta_minus = 0.2;
 
 % Time instants for the whole simulation
-time_simulation =20000e-3;
+time_simulation =2000e-3;
 time_step = 1e-3;
 times = 0:time_step:time_simulation;
 
 % neuronal current parameters
 
-I_threshold = 7;
-tau_leak    = 5e-3 ;
+I_threshold = 20000;
+tau_leak    = 50e-3 ;
 
 % input current for the 48 output neurons
 neuronal_current = zeros(Nout,1);
@@ -79,7 +83,7 @@ neuronal_current = zeros(Nout,1);
 
 Trefrac = 10e-3;
 Tltp    = 2e-3;
-Tinhibit = 1.5e-3;
+Tinhibit = 10*time_step;
 
 % for tracking the inhibitory and refractory time periods of the neurons
 inhibitory_flag = zeros(Nout,1);
@@ -93,15 +97,7 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
         AER_input_pixels = Data(:,:,1+mod(floor(i),NumFrames));
         %AER_input_pixels = 100*Data(:,:,1);
         
-        %%%% Display Realtime parameters
-        figure(1)
-        surf(AER_input_pixels)
-        figure(2)
-        weight_ = reshape(weight,N,M,2*Nout)
-        image(weight_(:,:,1),'CDataMapping','Scaled');
-        colorbar
-        pause(0.01);
-        i % print current iteration index
+        
 
       % finding out which neurons spiked
       % the AER pixels
@@ -116,7 +112,7 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
       if(~isempty(spiking_pixels))
          current_time         = i*time_step; 
          new_neuronal_current = compute_current(weight,neuronal_current,previous_spiking_pixels_time, current_time, spiking_pixels);
-         indices              = find(Time_inhibit);                      % neurons which are inhibited due to lateral inhibition or refraction
+         indices              = find(Time_inhibit>0);                      % neurons which are inhibited due to lateral inhibition or refraction
          new_neuronal_current(indices,1) = neuronal_current(indices,1);               % resetting the inhibited neurons to its previous value of current
          neuronal_current     = new_neuronal_current ;
          % Replacing the current window with a new current after a spike
@@ -124,7 +120,6 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
          
          % Fiinding out the neurons which will elicit a spike after reviseing
          % the neuronal current
-      
          threshold = find(neuronal_current>=I_threshold);     % checking if the current has gone above threshold 
          output_layer(threshold',1) = 1;                      % the spiking of output neurons
          neuronal_current(threshold') = 0;                    % resetting the current to zero for neurons which spiked
@@ -132,14 +127,17 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
          previous_AER_input_pixels_time(threshold',spiking_pixels) = i*time_step;
          
          % Taking care of the refractory period and lateral inhibition
-      
+         % threshold contains output neurons which spiked
          refractory_flag(threshold',1)        = 1;                                                                  % flag for the start of refractory period
-         Time_inhibit(:,1)                    = Time_inhibit(:,1) + Tinhibit/time_step;                        % Implementing lateral inhibition , adding 1 so that it can be decremented in the following code 
-         Time_inhibit(threshold',1)           = Time_inhibit(threshold',1) + (Trefrac - Tinhibit)/time_step ;      %undoing the effect of time inhibit of spiking neurons
+         %adding  t0 to all
+         Time_inhibit(:,1)                    = Time_inhibit(:,1) + Tinhibit;                        % Implementing lateral inhibition , adding 1 so that it can be decremented in the following code 
+         % subtractingg t0 from those who had threshold
+         Time_inhibit(threshold',1)           = Time_inhibit(threshold',1) + (Trefrac - Tinhibit) ;      %undoing the effect of time inhibit of spiking neurons
       
-         inhibit                              = 1:Nout;
-         inhibit(threshold')                  = [];
-         inhibitory_flag(inhibit,1)           = 1;                                                                 % neurons which did not spike are inhibited
+         % set inhibitory neurons
+         inhibit                             = 1:Nout;
+         inhibit(threshold')                  = [];                                         % remove those entries those spiked
+         inhibitory_flag(inhibit,1)           = 1;                                          % neurons which did not spike are inhibited
           
          % Weight updation rules for the synapses which have elicited a
          % spike 
@@ -147,7 +145,7 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
          total_neurons(threshold)  = [];         % indices of neurons which have'nt spiked
          weights_to_be_incremented = (previous_AER_input_pixels_time >= ((i*time_step) - Tltp));
          weight_to_be_incremented(total_neurons,:) = 0;     % all synapses have to be depreciated for which output neurons have'nt spiked
-         
+
          % All other neurons have to be decremented
          weights_to_be_decremented = ~(weights_to_be_incremented) ; 
          
@@ -160,8 +158,28 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
          delta_weight_sub = alpha_minus(weights_to_be_decremented).*exp(-(beta_minus)*((weight(weights_to_be_decremented) - w_min)/(w_max - w_min)));
          weight(weights_to_be_decremented) = weight(weights_to_be_decremented) - delta_weight_sub; 
          
-          flag = flag + 1;     
-         
-      end
+         flag = flag + 1;
+    end
+      
+      %%%% Display Realtime parameters
+        subplot(2,2,1);
+        surf(AER_input_pixels)
+        title('Input Data')
+        
+        weight_ = reshape(weight,N,M,2*Nout);
+        
+        subplot(2,2,2)
+        surf(weight_(:,:,4  ));
+        subplot(2,2,4)
+        surf(weight_(:,:,3));
+        title('All Weights')
+        %image(weight_(:,:,1),'CDataMapping','Scaled');colormap;
+        
+        subplot(2,2,3)
+        plot(output_layer);
+        title('OutputLayer');
+        subplot
+        pause(0.01);
+        i % print current iteration index
               
 end
