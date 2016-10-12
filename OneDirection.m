@@ -7,7 +7,7 @@ Nout = 12;
 
 
 N = 16;
-M = 3;
+M = 4;
 d = 4;
 X = 1:N;
 Y = 1:M;
@@ -17,7 +17,7 @@ DataSmooth = zeros(M,N,N-d);
 RawImgInput = zeros(M,N,N-d);
 for i=0:1:N-d
     x = X-i;y=Y;
-   
+    
     countourX = (heaviside(x-d)-heaviside(x)).*(x+1).*(x-d-1);
     countourY = (heaviside(y-d)-heaviside(y)).*(y+3).*(y-d-1);
     frame  = countourY'*countourX;
@@ -61,7 +61,7 @@ w_min = 100;
 
 % initialising weight with mean 800 and standard deviation 20
 
-weight = 700 + 160.*randn(N,M,2,Nout);
+weight = 800 + 160.*randn(N,M,2,Nout);
 
 % learning rate 
 
@@ -176,35 +176,39 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
          
          flag = flag + 1;
     end
-      
+      figure(1)
       %%%% Display Realtime parameters
+      if(mod(i,NumFrames)==0)
       weight_ = reshape(weight,N,M,2*Nout); % there are twice the number of weights
-        subplot(3,2,1);
+        subplot(2,2,1);
         surf(Data(:,:,currentDataIndex))
         title('Input Data')
         
-        subplot(3,2,2)
+        subplot(2,2,2)
         plot(neuronal_current);
         title(['OutputLayer(' int2str(i) ')']);
         
-        subplot(3,2,3);
+        subplot(2,2,3);
         image(DataSmooth(:,:,currentDataIndex),'CDataMapping','Scaled')
         title('Smooth AER data (before threshold)')
         
-        subplot(3,2,4);
+        subplot(2,2,4);
         image(RawImgInput(:,:,currentDataIndex),'CDataMapping','Scaled')     % the latest frame(Nth) is displayed,above from data N-1 th, Nth frame
         title('Raw Image Video Input')
-        for k=5:6
-            subplot(3,2,k)
+        figure(2) 
+        for k=1:24
+            subplot(6,4,k)
             %surf(weight_(:,:,k-4));
-            image(weight_(:,:,k-2)','CDataMapping','Scaled');
+            image(weight_(:,:,k)','CDataMapping','Scaled');
+            title(['Weight ' int2str(k)])
         end
-        title('All Weights')
+        
         %image(weight_(:,:,1),'CDataMapping','Scaled');colormap;
         
        
         
         pause(0.1);
         i % print current iteration index
+      end
               
 end
