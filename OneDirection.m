@@ -1,15 +1,20 @@
 %% Single direction detection Neural Network
 % Input AER data  of NxM ( 16X4 pixels ) of moving target of size less than
 % 4x4 pixels.
-% 12 output Neurons for two directions
 clc;clear
+% Number of Output Neurons  = 12
+Nout = 12;
+
+
 N = 16;
-M = 4;
+M = 3;
 d = 4;
 X = 1:N;
 Y = 1:M;
 AER_TH =20; %AER data threshold; found from plot of gradient
 Data = zeros(M,N,N-d);            % twice the number  !!
+DataSmooth = zeros(M,N,N-d);
+RawImgInput = zeros(M,N,N-d);
 for i=0:1:N-d
     x = X-i;y=Y;
    
@@ -18,9 +23,11 @@ for i=0:1:N-d
     frame  = countourY'*countourX;
     if(i>0)
         gradient = frame-frame_;
-        gradient = sign(gradient.*floor(abs(gradient/AER_TH)))
-        Data(:,:,i)= gradient;
-        image(gradient,'CDataMapping','scaled')
+        gradientD = sign(gradient.*floor(abs(gradient/AER_TH)));
+        RawImgInput(:,:,i) = frame;
+        DataSmooth(:,:,i) = gradient;
+        Data(:,:,i)= gradientD;
+        image(gradientD,'CDataMapping','scaled')
     end
     
     frame_ = frame;
@@ -36,8 +43,7 @@ print('Data Generated');
 %% STDP Network Learn
 %Network size NxM, with input size of N-d (d = target size) repeated K
 %times
-% Number of Output Neurons  = 12
-Nout = 12
+
 output_layer = zeros(Nout,1);
 
 dataSize = size(Data);
@@ -64,8 +70,8 @@ alpha_minus = 20+ 5.*randn(Nout,N*M*2);
 
 % damping rate
 % why not finite?? always add a constant value
-beta_plus = 0.2;
-beta_minus = 0.2;
+beta_plus = 0.5;
+beta_minus = 0.5;
 
 % Time instants for the whole simulation
 time_simulation =2000e-3;
@@ -74,7 +80,7 @@ times = 0:time_step:time_simulation;
 
 % neuronal current parameters
 
-I_threshold = 20000;
+I_threshold = 10000;
 tau_leak    = 50e-3 ;
 
 % input current for the 48 output neurons
@@ -96,13 +102,13 @@ spike_dat = zeros(Nout,1);
 %% ====================================================== Simulation starts =====================================================
 flag = 0;
 weight = reshape(weight,N*M*2,Nout)';      % for convenience of using weight matrix
-% for k = 1:NumFrames-1
-%     Data(:,:,NumFrames+k)=Data(:,:,NumFrames-k);
-% end 
+
 for i=0:length(times) % changed index i to start from 0 rather than 1
         
+        currentDataIndex = 1+mod(i,NumFrames);
+        AER_input_pixels = Data(:,:,currentDataIndex);
+        %For debugging purposes 
         
-        AER_input_pixels = Data(:,:,1+mod(floor(i),NumFrames));
         %AER_input_pixels = 100*Data(:,:,1);
         
         
@@ -172,20 +178,26 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
     end
       
       %%%% Display Realtime parameters
-      weight_ = reshape(weight,N,M,2*Nout);
-        subplot(2,2,1);
-        surf(AER_input_pixels)
-        hold on 
-        image(weight_(:,:,1)','CDataMapping','Scaled');   hold off
+      weight_ = reshape(weight,N,M,2*Nout); % there are twice the number of weights
+        subplot(3,2,1);
+        surf(Data(:,:,currentDataIndex))
         title('Input Data')
-        subplot(2,2,2)
-        plot(neuronal_current);
-        title('OutputLayer');
         
-        for k=3:4
-            subplot(2,2,k)
-            %surf(weight_(:,:,k-2));
-            image(weight_(:,:,k-2),'CDataMapping','Scaled');
+        subplot(3,2,2)
+        plot(neuronal_current);
+        title(['OutputLayer(' int2str(i) ')']);
+        
+        subplot(3,2,3);
+        image(DataSmooth(:,:,currentDataIndex),'CDataMapping','Scaled')
+        title('Smooth AER data (before threshold)')
+        
+        subplot(3,2,4);
+        image(RawImgInput(:,:,currentDataIndex),'CDataMapping','Scaled')     % the latest frame(Nth) is displayed,above from data N-1 th, Nth frame
+        title('Raw Image Video Input')
+        for k=5:6
+            subplot(3,2,k)
+            %surf(weight_(:,:,k-4));
+            image(weight_(:,:,k-2)','CDataMapping','Scaled');
         end
         title('All Weights')
         %image(weight_(:,:,1),'CDataMapping','Scaled');colormap;
