@@ -1,6 +1,6 @@
 # Neuro
 ## Spiking Neural Network for motion direction
-* Based on ![Unsupervised Features Extraction from Asynchronous Silicon](http://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6033311) 
+* Based on [Unsupervised Features Extraction from Asynchronous Silicon](http://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6033311) 
 
 Retina through Spike-Timing-Dependent Plasticity
 * Contribution by-
