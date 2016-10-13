@@ -7,8 +7,8 @@ Nout = 12;
 
 
 N = 16;
-M = 6;
-d = 4;
+M = 16;
+d = 9;
 X = 1:N;
 Y = 1:M;
 AER_TH =20; %AER data threshold; found from plot of gradient
@@ -17,11 +17,13 @@ DataSmooth = zeros(M,N,N-d);
 RawImgInput = zeros(M,N,N-d);
 for i=0:1:N-d
     x = X-i;y=Y;
-    
-    countourX = (heaviside(x-d)-heaviside(x)).*(x+1).*(x-d-1);
-    countourY = (heaviside(y-d)-heaviside(y)).*(y+3).*(y-d-1);
+    x = mod(x,N);
+    y = mod(y,M);
+    countourX = (heaviside(x-d)-heaviside(x)).*(x).*(x-d-1);
+    countourY = (heaviside(y-d)-heaviside(y)).*(y).*(y-d-1);
     frame  = countourY'*countourX;
     if(i>0)
+        frame = frame+wgn(M,N,20);
         gradient = frame-frame_;
         gradientD = sign(gradient.*floor(abs(gradient/AER_TH)));
         RawImgInput(:,:,i) = frame;
@@ -61,11 +63,11 @@ w_min = 100;
 
 % initialising weight with mean 800 and standard deviation 20
 
-weight = 800 + 160.*randn(N,M,2,Nout);
+weight = 500 + 100.*randn(N,M,2,Nout);
 
 % learning rate 
 
-alpha_plus = 100 + 10.*randn(Nout,N*M*2);
+alpha_plus =  100+ 10.*randn(Nout,N*M*2);
 alpha_minus = 20+ 5.*randn(Nout,N*M*2);
 
 % damping rate
@@ -80,7 +82,7 @@ times = 0:time_step:time_simulation;
 
 % neuronal current parameters
 
-I_threshold = 10000;
+I_threshold = 2E5;
 tau_leak    = 50e-3 ;
 
 % input current for the 48 output neurons
@@ -125,7 +127,7 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
       
       if(~isempty(spiking_pixels))
          current_time         = i*time_step; 
-         new_neuronal_current = compute_current(weight,neuronal_current,previous_spiking_pixels_time, current_time, spiking_pixels);
+         new_neuronal_current = compute_current(weight,neuronal_current,previous_spiking_pixels_time, current_time, spiking_pixels,tau_leak);
          indices              = find(Time_inhibit>0);                      % neurons which are inhibited due to lateral inhibition or refraction
          new_neuronal_current(indices,1) = neuronal_current(indices,1);               % resetting the inhibited neurons to its previous value of current
          neuronal_current     = new_neuronal_current ;
@@ -160,6 +162,7 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
          total_neurons             = 1:Nout;        % All indices of output neurons
          total_neurons(threshold)  = [];         % indices of neurons which have'nt spiked
          weights_to_be_incremented = (previous_AER_input_pixels_time >= ((i*time_step) - Tltp));
+         
          weight_to_be_incremented(total_neurons,:) = 0;     % all synapses have to be depreciated for which output neurons have'nt spiked
 
          % All other neurons have to be decremented
@@ -171,14 +174,14 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
          
          % Depreciating the weights of neurons which are not related to the
          % current stimulus
-         delta_weight_sub = alpha_minus(weights_to_be_decremented).*exp(-(beta_minus)*((weight(weights_to_be_decremented) - w_min)/(w_max - w_min)));
+         delta_weight_sub = alpha_minus(weights_to_be_decremented).*exp(-(beta_minus)*(w_max-(weight(weights_to_be_decremented))/(w_max - w_min)));
          weight(weights_to_be_decremented) = weight(weights_to_be_decremented) - delta_weight_sub; 
          
          flag = flag + 1;
     end
       figure(1)
       %%%% Display Realtime parameters
-      %if(mod(i,NumFrames)==0) % if want to skip frames
+     % if(mod(i,NumFrames)==0)
       weight_ = reshape(weight,N,M,2*Nout); % there are twice the number of weights
         subplot(2,2,1);
         surf(Data(:,:,currentDataIndex))
@@ -196,19 +199,16 @@ for i=0:length(times) % changed index i to start from 0 rather than 1
         image(RawImgInput(:,:,currentDataIndex),'CDataMapping','Scaled')     % the latest frame(Nth) is displayed,above from data N-1 th, Nth frame
         title('Raw Image Video Input')
         figure(2) 
-        for k=1:24
-            subplot(6,4,k)
-            %surf(weight_(:,:,k-4));
-            image(weight_(:,:,k)','CDataMapping','Scaled');
+        for k=1:4
+            subplot(2,2,k)
+            surf(weight_(:,:,k));
+            %image(weight_(:,:,k)','CDataMapping','Scaled');
             title(['Weight ' int2str(k)])
         end
-        
+            
         %image(weight_(:,:,1),'CDataMapping','Scaled');colormap;
-        
-       
-        
         pause(0.1);
         i % print current iteration index
-     % end
+      %end
               
 end
